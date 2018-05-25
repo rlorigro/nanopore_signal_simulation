@@ -130,69 +130,70 @@ def timeSince(since):
     return '%dm %ds' % (m, s)
 
 
-# --- PROCESS INPUT DATA ---
+if __name__ == "__main__":
+    # --- PROCESS INPUT DATA ---
 
-path = 'data/names/*.txt'
+    path = 'data/names/*.txt'
 
-all_letters = string.ascii_letters+" .,;'"
-n_letters = len(all_letters)
+    all_letters = string.ascii_letters+" .,;'"
+    n_letters = len(all_letters)
 
-categorical_names, all_categories = read_categorical_names_as_dictionary(path, all_letters)
-n_categories = len(all_categories)
+    categorical_names, all_categories = read_categorical_names_as_dictionary(path, all_letters)
+    n_categories = len(all_categories)
 
-print(findFiles(path))
-print(unicodeToAscii('Ślusàrski', all_letters))
-print(n_letters)
-print(categorical_names['Irish'][:5])
-print(letterToTensor('J', n_letters))
-print(lineToTensor('Jones', n_letters).size())
+    print(findFiles(path))
+    print(unicodeToAscii('Ślusàrski', all_letters))
+    print(n_letters)
+    print(categorical_names['Irish'][:5])
+    print(letterToTensor('J', n_letters))
+    print(lineToTensor('Jones', n_letters).size())
 
-# --- INITIALIZE MODEL AND TRAINING TENSORS ---
+    # --- INITIALIZE MODEL AND TRAINING TENSORS ---
 
-n_hidden = 128
-rnn = RNN(n_letters, n_hidden, n_categories)
+    n_hidden = 128
+    rnn = RNN(n_letters, n_hidden, n_categories)
 
-input = lineToTensor('Albert', n_letters)
-hidden = Variable(torch.zeros(1, n_hidden))
+    input = lineToTensor('Albert', n_letters)
+    hidden = Variable(torch.zeros(1, n_hidden))
 
-output, next_hidden = rnn.forward(input[0], hidden)
+    output, next_hidden = rnn.forward(input[0], hidden)
 
-print(input[0])
-print(output)
-print(categoryFromOutput(output.data))
+    print(input[0])
+    print(output)
+    print(categoryFromOutput(output.data))
 
-for i in range(10):
-    category, name, category_tensor, line_tensor = randomTrainingExample(categorical_names)
-    print('category =', category, '| name =', name)
+    for i in range(10):
+        category, name, category_tensor, line_tensor = randomTrainingExample(categorical_names)
+        print('category =', category, '| name =', name)
 
-learning_rate = 0.005 # If you set this too high, it might explode. If too low, it might not learn
-loss_fn = nn.NLLLoss
+    learning_rate = 0.005 # If you set this too high, it might explode. If too low, it might not learn
+    loss_fn = nn.NLLLoss
 
-n_iters = 100000
-print_every = 5000
-plot_every = 1000
+    n_iters = 100000
+    print_every = 5000
+    plot_every = 1000
 
-# Keep track of losses for plotting
-current_loss = 0
-all_losses = []
+    # Keep track of losses for plotting
+    current_loss = 0
+    all_losses = []
 
-start = time.time()
+    start = time.time()
 
-for iter in range(1, n_iters + 1):
-    category, line, category_tensor, name_tensor = randomTrainingExample(categorical_names)
-    output, loss = train(model=rnn, loss_fn=loss_fn, category_tensor=category_tensor, name_tensor=name_tensor)
-    current_loss += loss
+    for iter in range(1, n_iters + 1):
+        category, line, category_tensor, name_tensor = randomTrainingExample(categorical_names)
+        output, loss = train(model=rnn, loss_fn=loss_fn, category_tensor=category_tensor, name_tensor=name_tensor)
+        current_loss += loss
 
-    # Print iter number, loss, name and guess
-    if iter % print_every == 0:
-        guess, guess_i = categoryFromOutput(output)
-        correct = '✓' if guess == category else '✗ (%s)' % category
-        print('%d %d%% (%s) %.4f %s / %s %s' % (iter, iter / n_iters * 100, timeSince(start), loss, line, guess, correct))
+        # Print iter number, loss, name and guess
+        if iter % print_every == 0:
+            guess, guess_i = categoryFromOutput(output)
+            correct = '✓' if guess == category else '✗ (%s)' % category
+            print('%d %d%% (%s) %.4f %s / %s %s' % (iter, iter / n_iters * 100, timeSince(start), loss, line, guess, correct))
 
-    # Add current loss avg to list of losses
-    if iter % plot_every == 0:
-        all_losses.append(current_loss / plot_every)
-        current_loss = 0
+        # Add current loss avg to list of losses
+        if iter % plot_every == 0:
+            all_losses.append(current_loss / plot_every)
+            current_loss = 0
 
-plt.figure()
-plt.plot(all_losses)
+    plt.figure()
+    plt.plot(all_losses)
