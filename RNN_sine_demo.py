@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 torch.manual_seed(1)    # reproducible
 
 # Hyper Parameters
-TIME_STEP = 5       # rnn time step
+TIME_STEP = 25       # rnn time step
 INPUT_SIZE = 1      # rnn input size
 LR = 0.004           # learning rate
 
@@ -22,7 +22,7 @@ class RNN(nn.Module):
         self.rnn = nn.RNN(
             input_size=INPUT_SIZE,
             hidden_size=self.hidden_size,     # rnn hidden unit
-            num_layers=2,       # number of rnn layer
+            num_layers=3,       # number of rnn layer
             batch_first=True,   # input & output will has batch size as 1s dimension. e.g. (batch, time_step, input_size)
             nonlinearity="relu"
         )
@@ -55,6 +55,8 @@ class RNN(nn.Module):
 
         r_out, h = self.rnn(x, h)
         r_out = r_out.view(-1, self.hidden_size)
+
+        print(r_out.shape)
 
         y = self.out(r_out)
 
@@ -99,10 +101,10 @@ def run():
 
     test_realtime(model=rnn)
 
-    test_recursively(model=rnn)
+    # test_recursively(model=rnn)
 
 
-def train_realtime(model, loss_fn, optimizer, n_iterations=3000, max_pi=8, n_steps_per_pi=50):
+def train_realtime(model, loss_fn, optimizer, n_iterations=24000, max_pi=16, n_steps_per_pi=50):
     n_steps = n_steps_per_pi*max_pi
     h_state = None      # for initial hidden state
     start, end = 0, max_pi*np.pi  # time range
@@ -118,7 +120,8 @@ def train_realtime(model, loss_fn, optimizer, n_iterations=3000, max_pi=8, n_ste
         x = Variable(torch.from_numpy(x_np[np.newaxis, :, np.newaxis]))    # shape (batch, time_step, input_size)
         y = Variable(torch.from_numpy(y_np[np.newaxis, :, np.newaxis]))
 
-        prediction, h_state = model(x, h_state)   # rnn output
+        force = random.random() > 0.5
+        prediction, h_state = model(x, h_state, force=force)   # rnn output
 
         # !! next step is important !!
         h_state = None        # repack the hidden state, break the connection from last iteration
@@ -128,17 +131,17 @@ def train_realtime(model, loss_fn, optimizer, n_iterations=3000, max_pi=8, n_ste
         loss.backward()                         # backpropagation, compute gradients
         optimizer.step()                        # apply gradients
 
-        if i%10==0:
+        if i%100==0:
             print(loss.data[0])
 
             # plotting
-            plt.plot(s[-1], y_np.flatten(), marker='o', color='k')
-            plt.plot(s[-1], prediction.data.numpy().flatten(), marker='o', color='r', alpha=i/n_iterations)
-            plt.draw()
-            plt.pause(0.05)
-
-    plt.ioff()
-    plt.show()
+    #         plt.plot(s[-1], y_np.flatten(), marker='o', color='k')
+    #         plt.plot(s[-1], prediction.data.numpy().flatten(), marker='o', color='r', alpha=i/n_iterations)
+    #         plt.draw()
+    #         plt.pause(0.05)
+    #
+    # plt.ioff()
+    # plt.show()
 
 
 def test_realtime(model, n_iterations=180, max_pi=8, n_steps_per_pi=50):
@@ -146,7 +149,7 @@ def test_realtime(model, n_iterations=180, max_pi=8, n_steps_per_pi=50):
 
     n_steps = n_steps_per_pi*max_pi
     start = random.random()*30
-    end = max_pi*np.pi  # time range
+    end = start + max_pi*np.pi  # time range
     steps = np.linspace(start, end, n_steps, dtype=np.float32)
     sine_steps = sample_sin(steps)
     sine_steps_prediction = sample_sin(steps)

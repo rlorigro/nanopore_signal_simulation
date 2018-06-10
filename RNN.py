@@ -1,199 +1,126 @@
-from __future__ import unicode_literals, print_function, division
-from io import open
-import glob
-import unicodedata
-import string
-import torch
-import torch.nn as nn
-from torch.autograd import Variable
 import random
-import time
-import math
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-
-
-def findFiles(path):
-    return glob.glob(path)
-
-
-# Turn a Unicode string to plain ASCII, thanks to http://stackoverflow.com/a/518232/2809427
-def unicodeToAscii(s, all_letters):
-    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn' and c in all_letters)
-
-
-# Read a file and split into lines
-def readLines(filename, all_letters):
-    lines = open(filename, encoding='utf-8').read().strip().split('\n')
-    return [unicodeToAscii(line, all_letters) for line in lines]
-
-
-def read_categorical_names_as_dictionary(path, all_letters):
-    # Build the category_lines dictionary, a list of names per language
-    categorical_names = {}
-    all_categories = []
-
-    for filename in findFiles(path):
-        category = filename.split('/')[-1].split('.')[0]
-        all_categories.append(category)
-        lines = readLines(filename, all_letters)
-        categorical_names[category] = lines
-
-    return categorical_names, all_categories
-
-
-# Find letter index from all_letters, e.g. "a" = 0
-def letterToIndex(letter):
-    return all_letters.find(letter)
-
-
-# Just for demonstration, turn a letter into a <1 x n_letters> Tensor
-def letterToTensor(letter, n_letters):
-    tensor = torch.zeros(1, n_letters)
-    tensor[0][letterToIndex(letter)] = 1
-    return tensor
-
-
-# Turn a line into a <line_length x 1 x n_letters>,
-# or an array of one-hot letter vectors
-def lineToTensor(line, n_letters):
-    tensor = torch.zeros(len(line), 1, n_letters)
-    for li, letter in enumerate(line):
-        tensor[li][0][letterToIndex(letter)] = 1
-    return Variable(tensor)
-
-
-def categoryFromOutput(output):
-    top_n, top_i = output.topk(1)
-    category_i = int(top_i[0])
-    return all_categories[category_i], category_i
+import torch
+from torch import nn
+from torch.autograd import Variable
+import numpy as np
+import matplotlib.pyplot as pyplot
+from DataGenerator import SineGenerator
 
 
 class RNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
+    def __init__(self):
         super(RNN, self).__init__()
 
-        self.hidden_size = hidden_size
+        self.hidden_size = 24
 
-        self.i2h = nn.Linear(input_size + hidden_size, hidden_size)
-        self.i2o = nn.Linear(input_size + hidden_size, output_size)
-        self.softmax = nn.LogSoftmax(dim=1)
+        self.rnn = nn.LSTM(
+            input_size=1,
+            hidden_size=self.hidden_size,     # rnn hidden unit
+            num_layers=1,       # number of rnn layer
+            batch_first=True,   # input & output will has batch size as 1s dimension. e.g. (batch, time_step, input_size)
+            # nonlinearity="relu"
+        )
 
-    def forward(self, input, hidden):
-        combined = torch.cat((input, hidden), 1)
-        hidden = self.i2h(combined)
-        output = self.i2o(combined)
-        output = self.softmax(output)
-        return output, hidden
+        self.layer_sizes = [self.hidden_size, 24, 1]
+        D_in, H1, D_out = self.layer_sizes
 
-    def initHidden(self):
-        return Variable(torch.zeros(1, self.hidden_size))
+        # print(D_in, H1, D_out)
 
+        self.linear1 = nn.Linear(D_in, H1)
+        self.activation1 = nn.ReLU()
+        self.linear2 = nn.Linear(H1, D_out)
+        self.activation2 = nn.ReLU()
 
-def randomChoice(l):
-    return l[random.randint(0, len(l)-1)]
+    def out(self, x):
+        x = self.linear1(x)
+        x = self.activation1(x)
+        # print(x.size())
 
+        x = self.linear2(x)
+        x = self.activation2(x)
+        # print(x.size())
 
-def randomTrainingExample(categorical_names):
-    category = randomChoice(all_categories)
-    line = randomChoice(categorical_names[category])
-    category_tensor = Variable(torch.LongTensor([all_categories.index(category)]))
-    line_tensor = lineToTensor(line, n_letters)
+        return x
 
-    return category, line, category_tensor, line_tensor
+    def forward(self, x, h_state, y):
+        # x.shape = (batch_size, time_step, input_size)
+        r_out, h_n = self.rnn(x, h_state)
 
+        # print(h_n.shape)
+        #
+        # r_out = r_out[:,-1:,:]
+        #
+        # print(r_out.shape)
 
-def train(model, category_tensor, name_tensor, loss_fn):
-    hidden = rnn.initHidden()
+        outs = self.out(h_n)
 
-    rnn.zero_grad()
-    output = None
-
-    for i in range(name_tensor.size()[0]):
-        output, hidden = model.forward(name_tensor[i], hidden)
-
-    loss = loss_fn(output, category_tensor)
-    loss.backward()
-
-    # Add parameters' gradients to their values, multiplied by learning rate
-    for p in rnn.parameters():
-        p.data.add_(-learning_rate, p.grad.data)
-
-    return output, loss.item()
+        return outs
 
 
-def timeSince(since):
-    now = time.time()
-    s = now - since
-    m = math.floor(s / 60)
-    s -= m * 60
-    return '%dm %ds' % (m, s)
+def run():
+    data_generator = SineGenerator(pi_fraction_per_training_example=0.5, n_steps_per_pi=40, max_pi=8)
+
+    rnn = RNN()
+    print(rnn)
+
+    learning_rate = 0.002
+
+    optimizer = torch.optim.Adam(rnn.parameters(), lr=learning_rate)   # optimize all rnn parameters
+    loss_fn = nn.MSELoss()
+
+    pyplot.figure(1, figsize=(12, 5))
+    pyplot.ion()           # continuously plot
+
+    train_realtime(model=rnn,
+                   loss_fn=loss_fn,
+                   optimizer=optimizer,
+                   data_generator=data_generator,
+                   n_batches=1000)
+
+
+def train_realtime(model, loss_fn, optimizer, data_generator, n_batches):
+    h_state = None
+
+    for i in range(n_batches):
+        # x.shape = (batch_size, time_step, input_size)
+        x_steps, y_steps, x, y = data_generator.generate_data(batch_size=32)
+
+        # prediction.shape = (seq_len, batch, num_directions * hidden_size)
+        prediction = model(x=x, y=y, h_state=h_state)   # rnn output
+
+        # !! next step is important !!
+        h_state = None                  # repack the hidden state, break the connection from last iteration
+        loss = loss_fn(prediction, y)   # loss
+        optimizer.zero_grad()           # clear gradients for this training step
+        loss.backward()                 # backpropagation, compute gradients
+        optimizer.step()                # apply gradients
+
+        # print(x_steps.shape)
+        # print(y_steps.shape)
+        # print(x.shape)
+        # print(y.shape)
+        # print(prediction.shape)
+
+        x_sample = x[-1,:,:].data.numpy().squeeze()
+        y_sample = y[-1,:,:].data.numpy().squeeze()
+        y_prediction_sample = prediction[:,-1,:].data.numpy().squeeze()
+        x_sample_steps = x_steps[-1,:,:].squeeze()
+        y_sample_steps = y_steps[-1,:,:].squeeze()
+
+        # print(x_sample_steps.shape)
+        # print(y_sample_steps.shape)
+
+        # if i % 100 == 0:
+        pyplot.plot(y_sample_steps, y_sample, marker='o', color='k')
+        pyplot.plot(y_sample_steps, y_prediction_sample, marker='o', color='r', alpha=i/n_batches)
+
+        print(loss.data[0])
+        pyplot.draw()
+        pyplot.pause(0.1)
+
+    pyplot.ioff()
+    pyplot.show()
 
 
 if __name__ == "__main__":
-    # --- PROCESS INPUT DATA ---
-
-    path = 'data/names/*.txt'
-
-    all_letters = string.ascii_letters+" .,;'"
-    n_letters = len(all_letters)
-
-    categorical_names, all_categories = read_categorical_names_as_dictionary(path, all_letters)
-    n_categories = len(all_categories)
-
-    print(findFiles(path))
-    print(unicodeToAscii('Ślusàrski', all_letters))
-    print(n_letters)
-    print(categorical_names['Irish'][:5])
-    print(letterToTensor('J', n_letters))
-    print(lineToTensor('Jones', n_letters).size())
-
-    # --- INITIALIZE MODEL AND TRAINING TENSORS ---
-
-    n_hidden = 128
-    rnn = RNN(n_letters, n_hidden, n_categories)
-
-    input = lineToTensor('Albert', n_letters)
-    hidden = Variable(torch.zeros(1, n_hidden))
-
-    output, next_hidden = rnn.forward(input[0], hidden)
-
-    print(input[0])
-    print(output)
-    print(categoryFromOutput(output.data))
-
-    for i in range(10):
-        category, name, category_tensor, line_tensor = randomTrainingExample(categorical_names)
-        print('category =', category, '| name =', name)
-
-    learning_rate = 0.005 # If you set this too high, it might explode. If too low, it might not learn
-    loss_fn = nn.NLLLoss
-
-    n_iters = 100000
-    print_every = 5000
-    plot_every = 1000
-
-    # Keep track of losses for plotting
-    current_loss = 0
-    all_losses = []
-
-    start = time.time()
-
-    for iter in range(1, n_iters + 1):
-        category, line, category_tensor, name_tensor = randomTrainingExample(categorical_names)
-        output, loss = train(model=rnn, loss_fn=loss_fn, category_tensor=category_tensor, name_tensor=name_tensor)
-        current_loss += loss
-
-        # Print iter number, loss, name and guess
-        if iter % print_every == 0:
-            guess, guess_i = categoryFromOutput(output)
-            correct = '✓' if guess == category else '✗ (%s)' % category
-            print('%d %d%% (%s) %.4f %s / %s %s' % (iter, iter / n_iters * 100, timeSince(start), loss, line, guess, correct))
-
-        # Add current loss avg to list of losses
-        if iter % plot_every == 0:
-            all_losses.append(current_loss / plot_every)
-            current_loss = 0
-
-    plt.figure()
-    plt.plot(all_losses)
+    run()
