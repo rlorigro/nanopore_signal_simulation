@@ -77,13 +77,13 @@ class SignalGenerator:
                 random_float = random.uniform(a=0, b=1.0)
                 if len(signal) > 1 and random_float < self.interpolate_rate:
 
-                    print(signal[-2:])
+                    # print(signal[-2:])
                     inter_point = random.uniform(signal[-1], signal[-2])
                     inter_point = self.noise_model.sample(inter_point)
                     signal.append(signal[-1])
                     signal[-2] = inter_point
 
-                    print(signal[-3:])
+                    # print(signal[-3:])
 
         return signal
 

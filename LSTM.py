@@ -6,7 +6,6 @@ import numpy as np
 import matplotlib.pyplot as pyplot
 from DataGenerator import SineGenerator
 
-torch.manual_seed(6)
 
 class RNN(nn.Module):
     def __init__(self):
@@ -14,12 +13,11 @@ class RNN(nn.Module):
 
         self.hidden_size = 24
 
-        self.rnn = nn.RNN(
+        self.rnn = nn.LSTM(
             input_size=1,
             hidden_size=self.hidden_size,     # rnn hidden unit
             num_layers=1,       # number of rnn layer
-            batch_first=True,   # input & output will has batch size as 1s dimension. e.g. (batch, time_step, input_size)
-            nonlinearity="relu"
+            batch_first=True   # input & output will has batch size as 1s dimension. e.g. (batch, time_step, input_size)
         )
 
         self.layer_sizes = [self.hidden_size, 24, 1]
@@ -43,9 +41,9 @@ class RNN(nn.Module):
 
         return x
 
-    def forward(self, x, h_state, y):
+    def forward(self, x, h_state, c_state, y):
         # x.shape = (batch_size, time_step, input_size)
-        r_out, h_n = self.rnn(x, h_state)
+        r_out, (h_n, c_n) = self.rnn(x, (h_state, c_state))
 
         out = self.out(h_n)
 
@@ -53,17 +51,23 @@ class RNN(nn.Module):
 
 
 def train(model, loss_fn, optimizer, data_generator, n_batches):
-    batch_size = 6
-    h_state = None
+    batch_size = 4
+
+    # (input size, batch size, hidden size)
+    h_state = Variable(torch.zeros((1, batch_size, model.hidden_size,)))
+    c_state = Variable(torch.zeros((1, batch_size, model.hidden_size,)))
 
     for i in range(n_batches):
         # x.shape = (batch_size, time_step, input_size)
         x_steps, y_steps, x, y = data_generator.generate_data(batch_size=batch_size)
 
         # prediction.shape = (seq_len, batch, num_directions * hidden_size)
-        prediction = model(x=x, y=y, h_state=h_state)   # rnn output
+        prediction = model(x=x, y=y, h_state=h_state, c_state=c_state)   # rnn output
 
-        h_state = None                  # repack the hidden state, break the connection from last iteration
+        # reset hidden states
+        h_state = Variable(torch.zeros((1, batch_size, model.hidden_size,)))
+        c_state = Variable(torch.zeros((1, batch_size, model.hidden_size,)))
+
         loss = loss_fn(prediction, y.reshape([1,batch_size,1]))   # loss
         optimizer.zero_grad()           # clear gradients for this training step
         loss.backward()                 # backpropagation, compute gradients
@@ -93,16 +97,21 @@ def train(model, loss_fn, optimizer, data_generator, n_batches):
 
 def test(model, data_generator, n_batches):
     batch_size = 60
-    h_state = None
+
+    # (input size, batch size, hidden size)
+    h_state = Variable(torch.zeros((1, batch_size, model.hidden_size,)))
+    c_state = Variable(torch.zeros((1, batch_size, model.hidden_size,)))
 
     for i in range(n_batches):
         # x.shape = (batch_size, time_step, input_size)
         x_steps, y_steps, x, y = data_generator.generate_data(batch_size=batch_size)
 
         # prediction.shape = (seq_len, batch, num_directions * hidden_size)
-        prediction = model(x=x, y=y, h_state=h_state)   # rnn output
+        prediction = model(x=x, y=y, h_state=h_state, c_state=c_state)   # rnn output
 
-        h_state = None                  # repack the hidden state, break the connection from last iteration
+        # reset hidden states
+        h_state = Variable(torch.zeros((1, batch_size, model.hidden_size,)))
+        c_state = Variable(torch.zeros((1, batch_size, model.hidden_size,)))
 
         x_sample = x[-1,:,:].data.numpy().squeeze()
         y_sample = y[-1,:,:].data.numpy().squeeze()
@@ -127,10 +136,11 @@ def test(model, data_generator, n_batches):
 
 def test_sequential(model, data_generator):
     batch_size = 40
-    h_state = None
+    h_state = Variable(torch.zeros((1, batch_size, model.hidden_size,)))
+    c_state = Variable(torch.zeros((1, batch_size, model.hidden_size,)))
 
     x_steps, y_steps, x, y = data_generator.generate_data(batch_size=batch_size, sequential=True)
-    prediction = model(x=x, y=y, h_state=h_state)  # rnn output
+    prediction = model(x=x, y=y, h_state=h_state, c_state=c_state)  # rnn output
 
     n = prediction.shape[1]
 
@@ -174,7 +184,7 @@ def run():
           data_generator=data_generator,
           n_batches=n_batches)
 
-    # test(model=rnn, data_generator=data_generator, n_batches=40)
+    test(model=rnn, data_generator=data_generator, n_batches=40)
 
     test_sequential(model=rnn, data_generator=data_generator)
 

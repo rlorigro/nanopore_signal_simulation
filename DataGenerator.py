@@ -14,7 +14,6 @@ class SineGenerator:
         self.pi_fraction_per_training_example = pi_fraction_per_training_example
         self.n_steps = int(round(self.pi_fraction_per_training_example*n_steps_per_pi))
         self.step_size = (self.pi_fraction_per_training_example*numpy.pi)/n_steps_per_pi
-        # self.n_leading_values = n_leading_values
 
         print("n_steps", self.n_steps)
         print("step_size", self.step_size)
@@ -23,7 +22,13 @@ class SineGenerator:
         self.x_data_type = torch.FloatTensor
         self.y_data_type = torch.FloatTensor     # for MSE Loss or BCE loss
 
-    def generate_data(self, batch_size):
+        self.sin_amplitude = 0.9
+        self.sin_offset = 1.0
+
+    def sample_sin(self, steps):
+        return numpy.sin(steps)*self.sin_amplitude + self.sin_offset
+
+    def generate_data(self, batch_size, sequential=False):
         """
         Generate a list of training data tuples with x vector and y. x is a series of sequential values of length
         n_leading_values, y is the following value.
@@ -34,7 +39,7 @@ class SineGenerator:
         # pyplot.figure(1, figsize=(12, 5))
         # pyplot.ion()  # continuously plot
 
-        # x.shape = (batch_size, time_step, input_size)
+        # x shape is (batch_size, time_step, input_size)
         x_step_data = numpy.zeros([batch_size, self.n_steps, 1])
         y_step_data = numpy.zeros([batch_size, 1, 1])
         x_data = numpy.zeros([batch_size, self.n_steps, 1])
@@ -42,31 +47,28 @@ class SineGenerator:
 
         for i in range(batch_size):
             offset = numpy.pi/(self.n_steps_per_pi)
-            start = random.random()*(self.max_pi*numpy.pi-self.pi_fraction_per_training_example*numpy.pi-offset)
-            end = start + self.pi_fraction_per_training_example*numpy.pi
 
-            # print(self.n_steps,start,end,(end-start)/numpy.pi)
+            if sequential:
+                seed = i/batch_size
+            else:
+                seed = random.random()
+
+            start = seed*(self.max_pi*numpy.pi-self.pi_fraction_per_training_example*numpy.pi-offset)
+            end = start + self.pi_fraction_per_training_example*numpy.pi
 
             steps = numpy.linspace(start, end, self.n_steps+1, dtype=numpy.float32)
             x_steps = steps[:-1]
             y_steps = steps[-1:]
 
-            # print(x_steps.shape)
-            # print(y_steps.shape)
-            # print(numpy.expand_dims(x_steps, axis=1).shape)
-            # print(numpy.expand_dims(y_steps, axis=1).shape)
-
             x_step_data[i,:,:] = numpy.expand_dims(x_steps, axis=1)
             y_step_data[i,:,:] = numpy.expand_dims(y_steps, axis=1)
 
-            sine_steps = numpy.sin(steps)*0.9 + 1
+            sine_steps = self.sample_sin(steps)
             x = sine_steps[:-1]
             y = sine_steps[-1:]
             x_data[i,:,:] = numpy.expand_dims(x, axis=1)
             y_data[i,:,:] = numpy.expand_dims(y, axis=1)
 
-            # print(x)
-            # print(y)
         #     pyplot.plot(steps[:-1],x,color="blue",alpha=i/batch_size,marker='.')
         #     pyplot.plot(steps[-1:],y,color="red",alpha=i/batch_size,marker='.')
         #     pyplot.draw()
@@ -86,7 +88,7 @@ class SineGenerator:
 if __name__ == "__main__":
     generator = SineGenerator(pi_fraction_per_training_example=0.5, n_steps_per_pi=40, max_pi=8)
 
-    data = generator.generate_data(2)
+    data = generator.generate_sequential_data()
 
     print(data[0].T)
     print(data[1].T)
