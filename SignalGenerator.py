@@ -52,9 +52,9 @@ class GaussianDuration:
 
 
 class SignalGenerator:
-    '''
+    """
     Generates a simulated signal for any given DNA sequence. Requires a table of mean current values for all kmers.
-    '''
+    """
 
     def __init__(self, k, kmer_means_dictionary, event_variation_model, duration_model, noise_model, interpolate_rate=0.5, sample_rate=0.3):
         self.k = k
@@ -77,21 +77,18 @@ class SignalGenerator:
                 random_float = random.uniform(a=0, b=1.0)
                 if len(signal) > 1 and random_float < self.interpolate_rate:
 
-                    # print(signal[-2:])
                     inter_point = random.uniform(signal[-1], signal[-2])
                     inter_point = self.noise_model.sample(inter_point)
                     signal.append(signal[-1])
                     signal[-2] = inter_point
 
-                    # print(signal[-3:])
-
         return signal
 
     def generate_signal_from_sequence(self, sequence):
-        '''
+        """
         Given a sequence, use standard kmer signal values to estimate its expected signal (over all kmers in sequence).
         Additionally, generate random event durations.
-        '''
+        """
 
         events = list()
         sequence = ''.join(sequence)
@@ -110,7 +107,11 @@ class SignalGenerator:
 
         signal = self.rasterize_events(events)
 
-        return signal
+        return signal, events
+
+    def generate_training_batch(self, batch_size):
+        # x shape is (batch_size, time_step, input_size)
+        x_data = numpy.zeros(shape=batch_size, )
 
 
 class KmerTableReader:
@@ -122,10 +123,10 @@ class KmerTableReader:
         self.kmer_means = self.read_standard_kmer_means(kmer_table_path)
 
     def read_standard_kmer_means(self, kmer_means_file_path):
-        '''
+        """
         Read a file containing the list of all kmers and their expected signal means (2 columns, with headers), store as
         a dictionary of kmer:mean
-        '''
+        """
 
         standard_kmer_means = dict()
 
@@ -168,7 +169,7 @@ class KmerTableReader:
 if __name__ == "__main__":
     k = 6
     kmer_table_path = "/Users/saureous/data/nanopore/kmer_means"
-    kmer_table_handler = KmerTableReader(k=6, kmer_table_path=kmer_table_path)
+    kmer_table_handler = KmerTableReader(k=k, kmer_table_path=kmer_table_path)
 
     current_range = kmer_table_handler.get_range()
     n_kmers = kmer_table_handler.get_kmer_count()
@@ -199,7 +200,7 @@ if __name__ == "__main__":
 
     n_repeats = 1
     for i in range(n_repeats):
-        signal = signal_generator.generate_signal_from_sequence(sequence)
+        signal, events = signal_generator.generate_signal_from_sequence(sequence)
         pyplot.plot(signal)
 
     pyplot.show()
