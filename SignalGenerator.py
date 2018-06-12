@@ -51,6 +51,19 @@ class GaussianDuration:
         return t
 
 
+class SequenceGenerator:
+    def __init__(self):
+        self.characters = ['A','C','G','T']
+
+    def generate_sequence(self, length):
+        sequence = list()
+        for i in range(length):
+            sequence.append(random.choice(self.characters))
+
+        return sequence
+
+
+
 class SignalGenerator:
     """
     Generates a simulated signal for any given DNA sequence. Requires a table of mean current values for all kmers.
@@ -65,53 +78,82 @@ class SignalGenerator:
         self.sample_rate = sample_rate
         self.interpolate_rate = interpolate_rate
 
-    def rasterize_events(self, events):
+        self.sequence_generator = SequenceGenerator()
+
+    def rasterize_event_sequence(self, events):
         signal = list()
         for event in events:
-            n = round(event.duration/self.sample_rate)
-
-            for i in range(n):
-                data_point = self.noise_model.sample(event.mean)
-                signal.append(data_point)
-
-                random_float = random.uniform(a=0, b=1.0)
-                if len(signal) > 1 and random_float < self.interpolate_rate:
-
-                    inter_point = random.uniform(signal[-1], signal[-2])
-                    inter_point = self.noise_model.sample(inter_point)
-                    signal.append(signal[-1])
-                    signal[-2] = inter_point
+            self.append_signal(signal=signal, event=event)
 
         return signal
 
-    def generate_signal_from_sequence(self, sequence):
+    def append_signal(self, signal, event, max_length=sys.maxsize):
+        n = round(event.duration / self.sample_rate)
+
+        for i in range(n):
+            data_point = self.noise_model.sample(event.mean)
+
+            if len(signal) < max_length:
+                signal.append(data_point)
+
+            random_float = random.uniform(a=0, b=1.0)
+            # randomly generate a datapoint that interpolates between the last 2 datapoints
+            if len(signal) > 1 and len(signal) < max_length and random_float < self.interpolate_rate:
+                inter_point = random.uniform(signal[-1], signal[-2])
+                inter_point = self.noise_model.sample(inter_point)
+                signal.append(signal[-1])
+                signal[-2] = inter_point
+
+    def generate_signal_from_sequence(self, sequence, pad_signals=False):
         """
         Given a sequence, use standard kmer signal values to estimate its expected signal (over all kmers in sequence).
         Additionally, generate random event durations.
         """
-
         events = list()
         sequence = ''.join(sequence)
 
         for i in range(0, len(sequence) - self.k + 1):
             kmer = sequence[i:i + self.k]
-
             current = self.kmer_means[kmer]
             current = self.event_variation_model.sample(current)
-
             duration = self.duration_model.sample()
 
             event = Event(mean_current=current, duration=duration)
-
             events.append(event)
 
-        signal = self.rasterize_events(events)
+        signal = self.rasterize_event_sequence(events)
 
         return signal, events
 
-    def generate_training_batch(self, batch_size):
+    def pad_signals(self, signals, max_length):
+        for signal in signals:
+            current = 140
+            duration = max_length - len(signal)
+            event = Event(mean_current=current, duration=duration)
+
+            self.append_signal(signal=signal, event=event, max_length=max_length)
+
+    def generate_batch(self, batch_size, sequence_length):
         # x shape is (batch_size, time_step, input_size)
-        x_data = numpy.zeros(shape=batch_size, )
+        # x_data = numpy.zeros(shape=batch_size, )
+        sequences = list()
+        signals = list()
+
+        max_signal_length = 0
+        for i in range(batch_size):
+            sequence = self.sequence_generator.generate_sequence(sequence_length)
+            signal, events = self.generate_signal_from_sequence(sequence)
+
+            sequences.append(sequence)
+            signals.append(signal)
+
+            if len(signal) > max_signal_length:
+                max_signal_length = len(signal)
+
+        print(max_signal_length)
+        self.pad_signals(signals=signals, max_length=max_signal_length)
+
+        return signals, sequences
 
 
 class KmerTableReader:
@@ -168,7 +210,7 @@ class KmerTableReader:
 
 if __name__ == "__main__":
     k = 6
-    kmer_table_path = "/Users/saureous/data/nanopore/kmer_means"
+    kmer_table_path = "/home/ryan/data/Nanopore/kmerMeans"
     kmer_table_handler = KmerTableReader(k=k, kmer_table_path=kmer_table_path)
 
     current_range = kmer_table_handler.get_range()
@@ -195,12 +237,18 @@ if __name__ == "__main__":
                                        duration_model=duration_model,
                                        interpolate_rate=interpolate_rate)
 
-    sequence = "GATTACAGATTACAGATTACAGATTACA"
-    # signals = list()
+    # sequence = "GATTACAGATTACAGATTACAGATTACA"
+    # # signals = list()
+    #
+    # n_repeats = 1
+    # for i in range(n_repeats):
+    #     signal, events = signal_generator.generate_signal_from_sequence(sequence)
+    #     pyplot.plot(signal)
 
-    n_repeats = 1
-    for i in range(n_repeats):
-        signal, events = signal_generator.generate_signal_from_sequence(sequence)
+    signals, sequences = signal_generator.generate_batch(batch_size=4, sequence_length=16)
+
+    for signal in signals:
+        # print(signal)
         pyplot.plot(signal)
 
     pyplot.show()
