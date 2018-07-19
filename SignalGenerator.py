@@ -247,7 +247,7 @@ if __name__ == "__main__":
     #     signal, events = signal_generator.generate_signal_from_sequence(sequence)
     #     pyplot.plot(signal)
 
-    signals, sequences = signal_generator.generate_batch(batch_size=4, sequence_length=16)
+    signals, sequences = signal_generator.generate_batch(batch_size=1, sequence_length=6)
 
     for signal in signals:
         # print(signal)

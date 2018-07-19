@@ -48,13 +48,13 @@ def run():
     sequence_nucleotide_length = 6
 
     # Define architecture parameters
-    hidden_size = sequence_nucleotide_length
+    hidden_size = 2*sequence_nucleotide_length
     input_size = 1      # 1-dimensional signal
-    n_layers = 1
+    n_layers = 3
 
     # Define the hyperparameters
-    batch_size_train = 1
-    learning_rate = 1e-2
+    batch_size_train = 4
+    learning_rate = 1e-3
 
     # Define training parameters
     n_batches = 1000
@@ -62,7 +62,7 @@ def run():
     model = RNNAutoencoder(hidden_size=hidden_size, input_size=input_size, n_layers=n_layers)
 
     # Initialize the optimizer with above parameters
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     # Define the loss function
     loss_fn = nn.MSELoss()  # mean squared error
@@ -121,8 +121,8 @@ def train(model, data_loader, optimizer, loss_fn, n_batches, batch_size, sequenc
         signal_reconstruction = y_predict.detach().numpy()[0,:,:].squeeze()
 
         if i%200 == 0:
-            print(signal)
-            print(signal_reconstruction)
+            # print(signal)
+            # print(signal_reconstruction)
 
             pyplot.plot(signal)
             pyplot.plot(signal_reconstruction)
