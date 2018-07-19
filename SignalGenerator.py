@@ -63,7 +63,6 @@ class SequenceGenerator:
         return sequence
 
 
-
 class SignalGenerator:
     """
     Generates a simulated signal for any given DNA sequence. Requires a table of mean current values for all kmers.
@@ -134,6 +133,9 @@ class SignalGenerator:
             self.append_signal(signal=signal, event=event, max_length=max_length)
 
     def generate_batch(self, batch_size, sequence_length):
+        if sequence_length < self.k:
+            sys.exit("Sequence length (%d) must be longer than k (%d)"%(sequence_length, self.k))
+
         # x shape is (batch_size, time_step, input_size)
         # x_data = numpy.zeros(shape=batch_size, )
         sequences = list()
@@ -150,7 +152,7 @@ class SignalGenerator:
             if len(signal) > max_signal_length:
                 max_signal_length = len(signal)
 
-        print(max_signal_length)
+        # print(max_signal_length)
         self.pad_signals(signals=signals, max_length=max_signal_length)
 
         return signals, sequences

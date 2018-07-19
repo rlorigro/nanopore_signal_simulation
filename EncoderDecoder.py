@@ -13,7 +13,7 @@ import time
 SOS_token = 0
 EOS_token = 1
 MAX_LENGTH = 10
-USE_CUDA = False
+USE_CUDA = True
 teacher_forcing_ratio = 0.5
 clip = 5.0
 
@@ -187,8 +187,8 @@ class AttnDecoderRNN(nn.Module):
         context = attn_weights.bmm(encoder_outputs.transpose(0, 1))  # B x 1 x N
 
         # Final output layer (next word prediction) using the RNN hidden state and context vector
-        rnn_output = rnn_output.squeeze(0)  # S=1 x B x N -> B x N
-        context = context.squeeze(1)  # B x S=1 x N -> B x N
+        rnn_output = rnn_output.squeeze(0)      # S=1 x B x N -> B x N
+        context = context.squeeze(1)            # B x S=1 x N -> B x N
         output = F.log_softmax(self.out(torch.cat((rnn_output, context), 1)))
 
         # Return final output, hidden state, and attention weights (for visualization)
@@ -363,9 +363,9 @@ plot_loss_total = 0 # Reset every plot_every
 for epoch in range(1, n_epochs + 1):
     # Get training data for this cycle
     pair = random.choice(pairs)
-    print(pair[0], pair[1])
+    # print(pair[0], pair[1])
     training_pair = variables_from_pair(pair)
-    print(training_pair[0])
+    # print(training_pair[0])
     input_variable = training_pair[0]
     target_variable = training_pair[1]
 

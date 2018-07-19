@@ -56,7 +56,7 @@ class RNN(nn.Module):
         r_out, h = self.rnn(x, h)
         r_out = r_out.view(-1, self.hidden_size)
 
-        print(r_out.shape)
+        # print(r_out.shape)
 
         y = self.out(r_out)
 
