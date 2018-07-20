@@ -210,48 +210,40 @@ class KmerTableReader:
         return self.kmer_means
 
 
-if __name__ == "__main__":
-    k = 6
-    kmer_table_path = "/home/ryan/data/Nanopore/kmerMeans"
-    kmer_table_handler = KmerTableReader(k=k, kmer_table_path=kmer_table_path)
-
-    current_range = kmer_table_handler.get_range()
-    n_kmers = kmer_table_handler.get_kmer_count()
-    kmer_means = kmer_table_handler.get_kmer_current_dictionary()
-
-    average_current_difference = float(current_range)/n_kmers
-
-    print(current_range, n_kmers)
-    print(average_current_difference)
-
-    noise_sigma = 50*average_current_difference
-    event_variation_sigma = 0.5*average_current_difference
-    interpolate_rate = 1
-
-    noise_model = GaussianNoise(mu=0, sigma=noise_sigma)
-    event_variation_model = GaussianNoise(mu=0, sigma=event_variation_sigma)
-    duration_model = GaussianDuration(mu=5, sigma=3, minimum_duration=1)
-
-    signal_generator = SignalGenerator(k=6,
-                                       kmer_means_dictionary=kmer_means,
-                                       noise_model=noise_model,
-                                       event_variation_model=event_variation_model,
-                                       duration_model=duration_model,
-                                       interpolate_rate=interpolate_rate)
-
-    # sequence = "GATTACAGATTACAGATTACAGATTACA"
-    # # signals = list()
-    #
-    # n_repeats = 1
-    # for i in range(n_repeats):
-    #     signal, events = signal_generator.generate_signal_from_sequence(sequence)
-    #     pyplot.plot(signal)
-
-    signals, sequences = signal_generator.generate_batch(batch_size=1, sequence_length=6)
-
-    for signal in signals:
-        # print(signal)
-        pyplot.plot(signal)
-
-    pyplot.show()
+# if __name__ == "__main__":
+#     k = 6
+#     kmer_table_path = "/home/ryan/data/Nanopore/kmerMeans"
+#     kmer_table_handler = KmerTableReader(k=k, kmer_table_path=kmer_table_path)
+#
+#     current_range = kmer_table_handler.get_range()
+#     n_kmers = kmer_table_handler.get_kmer_count()
+#     kmer_means = kmer_table_handler.get_kmer_current_dictionary()
+#
+#     average_current_difference = float(current_range)/n_kmers
+#
+#     print(current_range, n_kmers)
+#     print(average_current_difference)
+#
+#     noise_sigma = 50*average_current_difference
+#     event_variation_sigma = 0.5*average_current_difference
+#     interpolate_rate = 1
+#
+#     noise_model = GaussianNoise(mu=0, sigma=noise_sigma)
+#     event_variation_model = GaussianNoise(mu=0, sigma=event_variation_sigma)
+#     duration_model = GaussianDuration(mu=5, sigma=3, minimum_duration=1)
+#
+#     signal_generator = SignalGenerator(k=6,
+#                                        kmer_means_dictionary=kmer_means,
+#                                        noise_model=noise_model,
+#                                        event_variation_model=event_variation_model,
+#                                        duration_model=duration_model,
+#                                        interpolate_rate=interpolate_rate)
+#
+#     signals, sequences = signal_generator.generate_batch(batch_size=1, sequence_length=6)
+#
+#     for signal in signals:
+#         # print(signal)
+#         pyplot.plot(signal)
+#
+#     pyplot.show()
 

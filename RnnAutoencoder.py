@@ -13,13 +13,9 @@ class EncoderRNN(nn.Module):
         self.hidden_size = hidden_size
         self.n_layers = n_layers
 
-        # self.lstm = nn.LSTM(input_size, hidden_size, n_layers, batch_first=True)
         self.gru = nn.GRU(input_size, hidden_size, n_layers, batch_first=True)
 
     def forward(self, input):
-        # h0 = Variable(torch.FloatTensor(self.n_layers, input.size(0), self.hidden_size))
-        # c0 = Variable(torch.FloatTensor(self.n_layers, input.size(0), self.hidden_size))
-
         output, h_n = self.gru(input)
 
         return output, h_n
@@ -39,9 +35,6 @@ class DecoderRNN(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, encoded_input):
-        # h0 = Variable(torch.FloatTensor(self.n_layers, encoded_input.size(0), self.output_size))
-        # c0 = Variable(torch.FloatTensor(self.n_layers, encoded_input.size(0), self.output_size))
-
         output, h_n = self.gru(encoded_input)
         output = self.relu(output)
 
@@ -51,12 +44,16 @@ class DecoderRNN(nn.Module):
 class RNNAutoencoder(nn.Module):
     def __init__(self, input_size, hidden_size, n_layers):
         super(RNNAutoencoder, self).__init__()
+
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.n_layers = n_layers
+
         self.encoder = EncoderRNN(input_size, hidden_size, n_layers)
         self.decoder = DecoderRNN(hidden_size, input_size, n_layers)
 
     def forward(self, input):
         output, h_n = self.encoder(input)
-        # print(output.shape, h_n.shape, c_n.shape)
         output, h_n = self.decoder(output)
 
         return output
