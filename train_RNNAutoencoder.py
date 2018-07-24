@@ -58,7 +58,7 @@ def initialize_signal_generator():
 
     noise_model = GaussianNoise(mu=0, sigma=noise_sigma)
     event_variation_model = GaussianNoise(mu=0, sigma=event_variation_sigma)
-    duration_model = GaussianDuration(mu=5, sigma=3, minimum_duration=1)
+    duration_model = GaussianDuration(mu=2, sigma=3, minimum_duration=1)
 
     signal_generator = SignalGenerator(k=6,
                                        kmer_means_dictionary=kmer_means,
@@ -72,7 +72,7 @@ def initialize_signal_generator():
 
 def train_batch(model, x, y, optimizer, loss_fn):
     # Run forward calculation
-    y_predict = model.forward(x)
+    y_predict = model.forward(x, force=True)
 
     # Compute loss.
     loss = loss_fn(y_predict, y)
@@ -115,7 +115,7 @@ def train(model, data_loader, optimizer, loss_fn, n_batches, batch_size, sequenc
             signal = x.detach().numpy()[0, :, :].squeeze()
             signal_reconstruction = y_predict.detach().numpy()[0, :, :].squeeze()
 
-            plot_prediction(x=signal, y=signal_reconstruction)
+            # plot_prediction(x=signal, y=signal_reconstruction)
 
 
 def test(model, data_loader, n_batches, batch_size, sequence_nucleotide_length):
@@ -178,17 +178,17 @@ def run():
     sequence_nucleotide_length = 8
 
     # Define architecture parameters
-    hidden_size = 2*sequence_nucleotide_length
+    hidden_size = 3*sequence_nucleotide_length
     input_size = 1      # 1-dimensional signal
     n_layers = 3
 
     # Define the hyperparameters
-    batch_size_train = 4
+    batch_size_train = 1
     learning_rate = 1e-3
     weight_decay = 1e-5
 
     # Define training parameters
-    n_batches = 2000
+    n_batches = 8000
 
     model = RNNAutoencoder(hidden_size=hidden_size, input_size=input_size, n_layers=n_layers)
 
@@ -231,10 +231,10 @@ def test_saved_model(model_state_path):
     data_loader = initialize_signal_generator()
 
     # Define signal simulator parameters
-    sequence_nucleotide_length = 100
+    sequence_nucleotide_length = 8
 
     # Define architecture parameters
-    hidden_size = 16
+    hidden_size = 3*sequence_nucleotide_length
     input_size = 1      # 1-dimensional signal
     n_layers = 3
 
@@ -251,8 +251,8 @@ def test_saved_model(model_state_path):
 
 
 if __name__ == "__main__":
-    run()
-
-    # model_path = "/home/ryan/code/nanopore_signal_simulation/output/2018-7-20-10-52-44-4-201/model_checkpoint_10"
-    # test_saved_model(model_path)
+    # run()
+    #
+    model_path = "/home/ryan/code/nanopore_signal_simulation/output/2018-7-20-16-33-48-4-201/model_checkpoint_40"
+    test_saved_model(model_path)
 
